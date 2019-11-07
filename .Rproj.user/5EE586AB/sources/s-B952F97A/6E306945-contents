@@ -1,0 +1,157 @@
+library(shiny)
+
+shinyUI(fluidPage(
+  headerPanel("Power Calculator for Logistic Regressions"),
+  span(textOutput("message"), style="color:red"),
+  
+  fluidPage(
+    
+    fluidRow(
+      
+      column(4,          
+           wellPanel(
+             helpText(hr(h4("I want to:"))),
+             checkboxInput(inputId = "adjust", 
+                           label = "Adjust for a confounder", 
+                           value = FALSE),
+             checkboxInput(inputId = "emp", 
+                           label = "Use empirical data distribution", 
+                           value = FALSE)
+           )),
+      
+      column(4,
+           wellPanel(
+             radioButtons(inputId = "radio", label = hr(h4("In the plot below, show:")),
+                          choices = list("Power" = 1, "Sample Size" = 2), selected = 1)
+           )),
+      
+      column(4,
+             wellPanel(
+               conditionalPanel(
+                 condition = "input.radio == 1",
+                 numericInput("refpwr", "Reference Power", value = .80, min = 0, max = 1),
+                 numericInput("currentn", "Current Sample Size", value = 2005, min = 0, max = 10000000)
+                 ),
+               
+               conditionalPanel(
+                 condition = "input.radio == 2",
+                 numericInput("maxn", "Maximum Sample Size", value = 2019, min = 0, max = 10000000),
+                 numericInput("target", "Power Target", value = 0.82, min = 0, max = 1)
+               )))
+      )),
+    
+    fluidRow(
+      column(4,
+             conditionalPanel(
+               condition = "input.adjust == false & input.emp == false",
+               radioButtons(inputId = "dist", label = hr(h4("Data Distribution")),
+                            choices = list("Normal" = 1, "Uniform" = 2, "Shifted/Scaled t" = 3, "Bernoulli" = 4), 
+                            selected = 1)
+               ),
+             
+                conditionalPanel(
+                    condition = "input.adjust == false & input.emp == false & input.dist == 1",
+                    numericInput("b1l1", "Hypothesized Lower Bound of Treatment Effect Size", value = 0.03, min = 0, max = 10),
+                    numericInput("b1u1", "Hypothesized Upper Bound of Treatment Effect Size", value = 0.33, min = 0, max = 10),
+                    numericInput("mu", "Normal distribution with mean = ", value = 0, min = -10000, max = 10000),
+                    numericInput("sigma", "And standard deviation = ", value = 1, min = 0, max = 10000)
+                  ),
+                  
+                  conditionalPanel(
+                    condition = "input.adjust == false & input.emp == false & input.dist == 2",
+                    numericInput("b1l2", "Hypothesized Lower Bound of Treatment Effect Size", value = 0.03, min = 0, max = 10),
+                    numericInput("b1u2", "Hypothesized Upper Bound of Treatment Effect Size", value = 0.73, min = 0, max = 10),
+                    numericInput("lwr", "Uniform distribution with an lower bound = ", value = 0, min = -10000, max = 10000),
+                    numericInput("upr", "And upper bound = ", value = 1, min = -10000, max = 10000)
+                  ),
+              
+                  conditionalPanel(
+                    condition = "input.adjust == false & input.emp == false & input.dist == 3",
+                    numericInput("b1l3", "Hypothesized Lower Bound of Treatment Effect Size", value = 0.03, min = 0, max = 10),
+                    numericInput("b1u3", "Hypothesized Upper Bound of Treatment Effect Size", value = 0.33, min = 0, max = 10),
+                    numericInput("ctr", "Shifted/scaled t distribution centered at ", value = 0, min = -10000, max = 10000),
+                    numericInput("scl", "with a scale factor = ", value = 1, min = 0.01, max = 10000),
+                    numericInput("df", "and degrees of freedom = ", value = 10, min = 2.01, max = 10000)
+                  ),
+             
+                  conditionalPanel(
+                    condition = "input.adjust == false & input.emp == false & input.dist == 4",
+                    numericInput("b1l4", "Hypothesized Lower Bound of Treatment Effect Size", value = 0.03, min = 0, max = 10),
+                    numericInput("b1u4", "Hypothesized Upper Bound of Treatment Effect Size", value = 0.33, min = 0, max = 10),
+                    numericInput("p", "Bernoulli with proportion of 1 = ", value = 0.5, min = 0, max = 1)
+                  ),
+             
+
+                  conditionalPanel(
+                   condition = "input.adjust == true & input.emp == false",
+                   numericInput("b1l", "Hypothesized Lower Bound of Treatment Effect Size", value = 0.03, min = 0, max = 10),
+                   numericInput("b1u", "Hypothesized Upper Bound of Treatment Effect Size", value = 0.33, min = 0, max = 10),
+                   numericInput("b2", "Hypothesized Confounder Effect Size", value = 0.13, min = 0, max = 10),
+                   sliderInput("rho", "Hypothesized Correlation between covariates", value = 0.5, min = 0, max = 1)
+                 ),
+                 
+                 conditionalPanel(
+                   condition = "input.emp == true",
+                   fileInput("file", "Choose CSV File for Design Matrix",
+                             multiple = FALSE,
+                             accept = c("text/csv",
+                                        "text/comma-separated-values,text/plain",
+                                        ".csv")),      
+                   fluidRow(
+                     column(4,
+                        checkboxInput("header", "Header", TRUE)
+                     ),
+                     column(8,
+                        checkboxInput("dispdf", "Display first few rows", TRUE)
+                     )
+                   ),
+                   
+                   tags$hr()
+                 ),
+                
+                 conditionalPanel(
+                   condition = "input.dispdf == true",
+                   tableOutput("dataframe")
+                 ),
+
+                 conditionalPanel(
+                   condition = "input.adjust == false & input.emp == true",
+                   numericInput("b1l1e", "Hypothesized Lower Bound of Treatment Effect Size", value = 0.33, min = 0, max = 10),
+                   numericInput("b1u1e", "Hypothesized Upper Bound of Treatment Effect Size", value = 0.88, min = 0, max = 10)               
+                ),
+                 
+                 conditionalPanel(
+                   condition = "input.adjust == true & input.emp == true",
+                   numericInput("b1l2e", "Hypothesized Lower Bound of Treatment Effect Size", value = 0.33, min = 0, max = 10),
+                   numericInput("b1u2e", "Hypothesized Upper Bound of Treatment Effect Size", value = 0.88, min = 0, max = 10),
+                   numericInput("b2e", "Hypothesized Confounder Effect Size", value = 0.13, min = 0, max = 10)
+                   #, sliderInput("rhoe", "Hypothesized Correlation Between Covariates", value = 0.5, min = 0, max = 1)
+                 )
+            ),
+
+        column(8,
+           wellPanel(
+             plotOutput("plot", 
+                        #click = "plot_click",
+                        hover = "plot_hover"
+                        )
+           ))
+      ),
+  
+    fluidRow(
+      
+        column(4,
+               sliderInput("prop", "Case Proportion", value = .5, min = 0, max = 1),
+               sliderInput("alpha", "Significance Level", value = .05, min = 0, max = 1)
+        ),
+        
+        column(4,
+               htmlOutput("outreq") 
+        ),
+        
+        column(4,
+               htmlOutput("reference") 
+        )
+    )
+
+  ))

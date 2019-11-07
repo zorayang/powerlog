@@ -1,0 +1,303 @@
+---
+title: 'powerlog: power calculations for logistic regressions'
+author: 'Yezi "Zora" Yang'
+output:
+  pdf_document: default
+  html_document: default
+data: \today
+---
+```{r}
+# install.packages("../powerlog_0.1.0.tar.gz", repos = NULL, type = "source")
+# library(powerlog)
+source("R/power.R")
+source("R/sampsize.R")
+source("R/effectsize.R")
+```
+
+Example 1: S-B Table 1
+```{r}
+calc_pwr(b0 = -1, b1 = 0.33, n = 500, dist = "normal", mu = 0, sigma = 1)
+calc_samp_size(b0 = -1, b1 = 0.33, targetpwr = 0.9, alpha = 0.05, 
+               dist = "normal", mu = 0, sigma = 1)
+
+approx_pwr(b0 = -1, b1 = 0.33, b2 = 0.9, rho = 0.5, n = 500, 
+           dist = "normal", mu = 0, sigma = 1)
+approx_samp_size(b0 = -1, b1 = 0.33, b2 = 0.9, rho = 0.5, targetpwr = 0.9, 
+                 alpha = 0.05, dist = "normal", mu = 0, sigma = 1)
+```
+
+
+```{r}
+# TODO: replace with data URL
+nhanes = read.csv("Data/nhaneslarge.csv")
+```
+
+Example 2: NHANES
+The data set
+```{r}
+names(nhanes)
+nhanes <- nhanes[complete.cases(nhanes[,c("BMXBMI","RIDAGEYR","BPXDAR")]),]
+nhanes$HighDBP = ifelse(nhanes$BPXDAR>70, 1, 0)
+nhanes$BMXBMI = as.numeric(nhanes$BMXBMI)
+nhanes$RIDAGEYR = as.numeric(nhanes$RIDAGEYR)
+
+mod = glm(HighDBP ~ RIDAGEYR, data = nhanes)
+mod.adj = glm(HighDBP ~ RIDAGEYR + BMXBMI, data = nhanes)
+
+prop_nhanes = sum(nhanes$HighDBP==1)/length(nhanes$HighDBP)
+```
+
+Power curves
+```{r}
+granu = 100
+lowerb = -0.1
+upperb= 0.15
+b1_hypos = seq(lowerb, upperb, length.out = granu)
+xmat_nhanes_univ = cbind(rep(1, nrow(nhanes)), nhanes$RIDAGEYR)
+b0_hats = sapply(X = b1_hypos, FUN = findb0emp, prop=prop_nhanes, 
+                 xmat = xmat_nhanes_univ, lower = -1, upper = 1)
+# univariate
+powers_univ = vector(length = granu)
+for (i in 1:length(powers_univ)){
+  pwr_i = calc_pwr_emp(b0 = b0_hats[i], b1 = b1_hypos[i], xmat = xmat_nhanes_univ, 
+                   alpha =.05, reg = "uni")
+  powers_univ[i] = pwr_i
+}
+plot(x = b1_hypos, y = powers_univ, type = "l", ylim = c(0, 1), xlim = c(-.05, .075),
+     xlab = "log odds ratio", ylab = "calculated power", 
+     main = paste0("Power vs. Log Odds Ratio When Sample Size (N) = ", nrow(nhanes)))
+
+# adjusted
+b2_hypo = 0.013
+b2_hypos = rep(b2_hypo, granu)
+xmat_nhanes_biv = cbind(rep(1, nrow(nhanes)), nhanes$RIDAGEYR, nhanes$BMXBMI)
+
+powers_biv = vector(length = granu)
+for (i in 1:length(powers_biv)){
+  b0_hat = findb0emp(b1 = b1_hypos[i], b2 = b2_hypos[i], prop=prop_nhanes, 
+                     xmat = xmat_nhanes_biv, reg = "multi", lower = -1, upper = 1) 
+  pwr_i = calc_pwr_emp(b0 = b0_hat, b1 = b1_hypos[i], b2 = b2_hypos[i], 
+                       xmat = xmat_nhanes_biv, alpha =.05, reg = "multi")
+  powers_biv[i] = pwr_i
+}
+
+plot(x = b1_hypos, y = powers_biv, type = "l", ylim = c(0, 1),
+     xlab = "log odds ratio", ylab = "calculated power", 
+     main = paste0("Power vs. Log Odds Ratio When Sample Size (N) = ", nrow(nhanes)))
+```
+
+```{r}
+mod.adj = glm(HighDBP ~ RIDAGEYR + BMXBMI, data = nhanes); summary(mod.adj)
+b0_MLE = -0.0314634; b1_MLE = 0.0032497; b2_MLE = 0.0131364
+fitted_p = expit(xmat_nhanes_biv%*%c(b0_MLE, b1_MLE, b2_MLE))
+
+p_vals = vector()
+for (i in 1:1000){
+  fitted_Y = rbinom(nrow(nhanes), 1, prob = fitted_p)
+  p_vals[i] = summary(glm(fitted_Y ~ RIDAGEYR + BMXBMI, data = nhanes))$coeff[2,4]
+}
+
+sum(p_vals<0.05)/length(p_vals)
+```
+
+Sample size curve univariate
+```{r}
+target_power = .80
+
+# HighDBP ~ RIDAGEYR
+ss_univ = vector(length = granu)
+for (i in 1:length(powers_univ)){
+  ss_i = calc_samp_size_emp(b0 = b0_hats[i], b1 = b1_hypos[i], xmat = xmat_nhanes_univ, 
+                   targetpwr = target_power, reg = "uni")
+  ss_univ[i] = ss_i
+}
+plot(x = b1_hypos, y = ss_univ, type = "l", xlim = c(-0.05, 0.05),
+     xlab = "log odds ratio", ylab = "calculated sample size", 
+     main = paste0("Sample Size vs. Log Odds Ratio When Target Power = ", target_power))
+
+```
+
+Sample size curve bivariate
+```{r}
+# HighDBP ~ RIDAGEYR + BMXBMI
+ss_biv = vector(length = granu)
+for (i in 1:length(ss_biv)){
+  b0_hat = findb0emp(b1 = b1_hypos[i], b2 = b2_hypos[i], prop = prop_nhanes, xmat = xmat_nhanes_biv, reg = "multi", lower = -1, upper = 1)
+  ss_i = calc_samp_size_emp(b0 = b0_hat, b1 = b1_hypos[i], b2 = b2_hypos[i], xmat = xmat_nhanes_biv, targetpwr = target_power, reg = "multi")
+  ss_biv[i] = ss_i
+}
+
+plot(x = b1_hypos, y = ss_biv, type = "l", xlim = c(-0.05, 0.05),
+     xlab = "log odds ratio", ylab = "calculated sample size", 
+     main = paste0("Sample Size vs. Log Odds Ratio When Target Power = ", target_power))
+```
+
+log odds ratio 
+```{r}
+# HighDBP ~ RIDAGEYR
+b1hat1 = calc_effect_size_emp(xmat=xmat_nhanes_univ, prop=prop_nhanes, targetpwr=target_power, alpha=0.05, reg = "uni", lower = 0, upper = 0.12)
+par(mar = c(5, 4, 5, 2) + 0.1)
+plot(x = b1hat1, y = target_power, type = "p", col = "forestgreen", pch = 16, 
+     xlab = "log odds ratio", ylab = "calculated power", 
+     ylim = c(0, 1), xlim = c(lowerb, max(upperb, b1hat1*1.1)),
+     main = paste0("Power vs. log odds ratio When Sample Size (N) = ", nrow(nhanes)))
+lines(x = b1_hypos, y = powers_univ)
+abline(h = target_power, col = "hotpink", lty = 2)
+axis(side = 3, at = b1hat1, labels = signif(b1hat1, 3))
+abline(v = b1hat1, col = "forestgreen", lty = 2)
+
+# HighDBP ~ RIDAGEYR + BMI
+b1hat2u = calc_effect_size_emp(xmat=xmat_nhanes_biv, prop=prop_nhanes, 
+                              b2=b2_hypo, targetpwr=target_power, 
+                              alpha=0.05, reg = "multi", lower=0, upper=0.15)
+b1hat2l =  calc_effect_size_emp(xmat=xmat_nhanes_biv, prop=prop_nhanes, 
+                              b2=b2_hypo, targetpwr=target_power, 
+                              alpha=0.05, reg = "multi", lower=-.10, upper=0)
+par(mar = c(5, 4, 5, 2) + 0.1)
+plot(x = b1hat2u, y = target_power, type = "p", col = "forestgreen", pch = 16, 
+     xlab = "log odds ratio", ylab = "calculated power", 
+     ylim = c(0, 1), xlim = c(lowerb, max(upperb, b1hat2u*1.1)),
+     main = paste0("Power vs. Log Odds Ratio When Sample Size (N) = ", nrow(nhanes)))
+points(x = b1hat2l,y = target_power, type = "p", col = "forestgreen", pch = 16 )
+lines(x = b1_hypos, y = powers_biv)
+abline(h = target_power, col = "hotpink", lty = 2)
+axis(side = 3, at = b1hat2u, labels = signif(b1hat2u, 3))
+axis(side = 3, at = b1hat2l, labels = signif(b1hat2l, 3))
+abline(v = b1hat2u, col = "forestgreen", lty = 2)
+abline(v = b1hat2l, col = "forestgreen", lty = 2)
+```
+
+
+Genetic data example:
+```{r}
+fms = read.delim("http://stat-gen.org/book.e1/data/FMS_data.txt", header=T, sep="\t")
+#FAMuSS - functional SNPs associated with muscle size and strength
+
+# trait is NDRM.CH - percentage change in muscle strength in non-dom arm
+
+# before and after exercise training
+
+# SNP is r577x, more at https://www.snpedia.com/index.php/Rs1815739
+
+fms$Geno = as.numeric(fms$actn3_r577x)-1
+fms$Male = as.numeric(fms$Gender=="Male") # a covariate to adjust for, if you need one.
+
+table(fms$Male)
+table(fms$Geno)
+
+fms$Trait = fms$NDRM.CH
+summary(fms$Trait)
+fms$binaryTrait = as.numeric(fms$Trait>=60)
+
+fms2 = na.omit(fms[c("binaryTrait", "Geno")])
+summary(glm(binaryTrait ~ Geno, data=fms2))$coef
+
+fms3 = na.omit(fms[c("binaryTrait", "Geno", "Male")])
+summary(glm(binaryTrait ~ Geno + Male, data=fms3))$coef
+```
+
+Same as before, parameters and etc.
+```{r}
+mod.b = glm(binaryTrait ~ Geno, data=fms2)
+prop.fms2 = sum(fms2$binaryTrait==1)/length(fms2$binaryTrait); prop.fms2
+
+mod.b.adj = glm(binaryTrait ~ Geno + Male, data=fms3)
+mean(fms3$Geno, na.rm=T); mean(fms3$Male)
+sd(fms3$Geno, na.rm=T); sd(fms3$Male)
+prop.fms3 = sum(fms3$binaryTrait==1)/length(fms3$binaryTrait); prop.fms3
+```
+
+Setup
+```{r}
+#library(powerlog)
+granu.b = 100
+lowerb.b = 0.01
+upperb.b = 1
+b1.hypos.b = seq(lowerb.b, upperb.b, length.out = granu.b)
+xmat.fms.univ = cbind(rep(1, nrow(fms2)), fms2$Geno)
+b0.hats.b = sapply(X = b1.hypos.b, FUN = findb0emp, prop=prop.fms2, 
+                   xmat = xmat.fms.univ, lower = -1, upper = 1)
+b2.hypo.b = -0.33
+xmat.fms.biv = cbind(rep(1, nrow(fms3)), fms3$Geno, fms3$Male)
+```
+
+Power curves
+```{r}
+# BinaryTrait ~ Genotype
+powers.univ.b = vector(length = granu.b)
+for (i in 1:length(powers.univ.b)){
+  pwr.i = calc_pwr_emp(b0 = b0.hats.b[i], b1 = b1.hypos.b[i], xmat = xmat.fms.univ, 
+                   alpha =.05, reg = "uni")
+  powers.univ.b[i] = pwr.i
+}
+plot(x = b1.hypos.b, y = powers.univ.b, type = "l", ylim = c(0, 1), xlim=c(0.01, .5),
+     xlab = "log odds ratio", ylab = "calculated power", 
+     main = paste0("Power vs. Log Odds Ratio When Sample Size (N) = ", nrow(fms2)))
+
+# BinaryTrait ~ Genotype + Male
+powers.biv.b = vector(length = granu.b)
+for (i in 1:length(powers.biv.b)){
+  b0.hat = findb0emp(b1 = b1.hypos.b[i], b2 = b2.hypo.b, prop=prop.fms3, xmat = xmat.fms.biv, reg = "multi", lower = -1, upper = 1)
+  pwr.i = calc_pwr_emp(b0 = b0.hat, b1 = b1.hypos.b[i], b2 = b2.hypo.b, xmat = xmat.fms.biv, alpha =.05, reg = "multi")
+  powers.biv.b[i] = pwr.i
+}
+
+plot(x = b1.hypos.b, y = powers.biv.b, type = "l", ylim = c(0, 1), xlim = c(0.01, 0.5),
+     xlab = "log odds ratio", ylab = "calculated power", 
+     main = paste0("Power vs. Log Odds Ratio When Sample Size (N) = ", nrow(fms3)))
+```
+
+Sample size curves
+```{r}
+target.power.b = .80
+# BinaryTrait ~ Genotype
+ss.univ.b = vector(length = granu.b)
+for (i in 1:length(powers.univ.b)){
+  ss.i = calc_samp_size_emp(b0 = b0.hats.b[i], b1 = b1.hypos.b[i], xmat = xmat.fms.univ, 
+                   targetpwr = target.power.b, reg = "uni")
+  ss.univ.b[i] = ss.i
+}
+plot(x = b1.hypos.b, y = ss.univ.b, type = "l", xlim = c(0.2, 0.65), ylim = c(0, 1800),
+     xlab = "log odds ratio", ylab = "calculated sample size", 
+     main = paste0("Sample Size vs. Log Odds Ratio When Target Power = ", target.power.b))
+
+# BinaryTrait ~ Genotype + Male
+ss.biv.b = vector(length = granu.b)
+for (i in 1:length(ss.biv.b)){
+  b0.hat = findb0emp(b1 = b1.hypos.b[i], b2 = b2.hypo.b, prop = prop.fms3, xmat = xmat.fms.biv, reg = "multi", lower = -1, upper = 1)
+  ss.i = calc_samp_size_emp(b0 = b0.hat, b1 = b1.hypos.b[i],  b2 = b2.hypo.b, xmat = xmat.fms.biv, targetpwr = target.power.b, reg = "multi")
+  ss.biv.b[i] = ss.i
+}
+
+plot(x = b1.hypos.b, y = ss.biv.b, type = "l", xlim = c(0.2, 0.65), ylim = c(0, 1800),
+     xlab = "log odds ratio", ylab = "calculated sample size", 
+     main = paste0("Sample Size vs. Log Odds Ratio When Target Power = ", target.power.b))
+```
+
+Estimated log odds ratio at the power target
+```{r}
+b1hat1.b2 = calc_effect_size_emp(xmat=xmat.fms.univ, prop=prop.fms2, targetpwr = target.power.b, alpha=0.05, reg = "uni", lower = lowerb.b, upper = upperb.b)
+
+par(mar = c(5, 4, 5, 2) + 0.1)
+plot(x = b1hat1.b2, y = target.power.b, type = "p", col = "forestgreen", pch = 16, 
+     xlab = "log odds ratio", ylab = "calculated power", 
+     ylim = c(0, 1), xlim = c(lowerb.b, max(upperb.b, b1hat1.b2*1.1)),
+     main = paste0("Power vs. log odds ratio When Sample Size (N) = ", nrow(fms2)))
+lines(x = b1.hypos.b, y = powers.univ.b)
+abline(h = target.power.b, col = "hotpink", lty = 2)
+axis(side = 3, at = b1hat1.b2, labels = signif(b1hat1.b2, 3))
+abline(v = b1hat1.b2, col = "forestgreen", lty = 2)
+
+
+
+b1hat1.b3 = calc_effect_size_emp(xmat=xmat.fms.biv, prop=prop.fms3, b2=b2.hypo.b, targetpwr = target.power.b, alpha=0.05, reg = "multi", lower = lowerb.b, upper = upperb.b)
+
+plot(x = b1hat1.b3, y = target.power.b, type = "p", col = "forestgreen", pch = 16, 
+     xlab = "log odds ratio", ylab = "calculated power", 
+     ylim = c(0, 1), xlim = c(lowerb.b, max(upperb.b, b1hat1.b3*1.1)),
+     main = paste0("Power vs. log odds ratio When Sample Size (N) = ", nrow(fms3)))
+lines(x = b1.hypos.b, y = powers.biv.b)
+abline(h = target.power.b, col = "hotpink", lty = 2)
+axis(side = 3, at = b1hat1.b3, labels = signif(b1hat1.b3, 3))
+abline(v = b1hat1.b3, col = "forestgreen", lty = 2)
+```

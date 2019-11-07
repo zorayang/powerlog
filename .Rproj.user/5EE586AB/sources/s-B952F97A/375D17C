@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1572806521289.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "2595917815",
+    "id" : "375D17C",
+    "lastKnownWriteTime" : 1572810262,
+    "last_content_update" : 1572810262181,
+    "path" : "~/OneDrive-UW/Thesis/powerlog/R/powerlog.R",
+    "project_path" : "R/powerlog.R",
+    "properties" : {
+        "cursorPosition" : "66,0",
+        "scrollLine" : "54"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

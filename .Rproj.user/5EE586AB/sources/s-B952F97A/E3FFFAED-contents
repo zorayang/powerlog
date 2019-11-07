@@ -1,0 +1,52 @@
+sample_size = 500 # sample size
+iter = 10000 # number of runs in simulation
+seed = 2018 # sets the psudo-random generation of X
+
+### TABLE 1: univariate, original effect size ###
+alpha = 0.05 # significance level
+beta_cov = 0.9
+rho = 0.5
+
+beta0 = t(c(-3, -2, -1, 0, 1)) # true model intercepts
+#beta1 = t(c(0.68, 0.45, 0.33, 0.33, 0.32)) # true effect sizes
+beta1 = t(c(0.68, 0.45, 0.33, 0.29, 0.33)) # true effect sizes
+beta2 = t(rep(beta_cov, 5))
+beta = cbind(t(beta0), t(beta1))
+beta_m = cbind(t(beta0), t(beta1), t(beta2))
+
+### TABLE 2: univariate, reduced effect size ###
+beta0_star = beta0
+beta1_star = beta1/2 # reduce effect size by factor of 2
+beta_star = cbind(t(beta0_star), t(beta1_star))
+
+n_star = sample_size*4
+
+## Robustness 1, 2: case/control ratio vs. varying sample size (50 - 1000) vs. abs number of cases ###
+proportions = c(0.02, 0.10, 0.25, 0.50)
+#proportions = seq(from = 0.02, to = 0.50, by = 0.02)
+samp_sizes = seq.int(from = 50, to = 1000, by = 10)
+#num_cases = samp_sizes%*%t(ratios)
+combo = expand.grid(samp_sizes, log(proportions)); names(combo) = c("N", "b0")
+combo$b1 = 0.33
+combo$b2 = 0.33
+
+## Robustness 3, 4, 5: power from different effect size vs. varying sample size (50 - 1000)###
+b_ones = c(0.68, 0.45, 0.33, 0.29, 0.20, 0.11)
+combo2 = expand.grid(samp_sizes, b_ones); names(combo2) = c("N", "b1")
+combo2$b0 = NA
+for(i in 1:nrow(combo2)){
+  b0i = findb0(b1 = combo2[i,2], mu = 0, sigma = 1, prop = proportions[3])$root
+  combo2$b0[i] = b0i
+}
+combo2$b2 = 0.33
+
+## Section 6.1 comparing data distributions
+effect_sizes = seq(0.11, 0.68, by = 0.01)
+combo3 = expand.grid(seq.int(from = 100, to = 500, by = 100),
+                     effect_sizes); names(combo3) = c("N", "b1")
+combo3$b0 = NA
+for(i in 1:nrow(combo3)){
+  b0i = findb0(b1 = combo3[i, 2], mu = 0, sigma = 1, prop = proportions[3])$root
+  combo3$b0[i] = b0i
+}
+combo3$b2 = 0.33

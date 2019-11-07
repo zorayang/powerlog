@@ -1,0 +1,496 @@
+library(shiny)
+library(metRology)
+
+source("power.R")
+source("sampsize.R")
+source("effectsize.R")
+
+shinyServer(
+  function(input, output) {
+    
+    renderInput = reactive({
+      dist = input$dist
+      mu = input$mu
+      sigma = input$sigma
+      upr = input$upr
+      lwr = input$lwr
+      p = input$p
+      ctr = input$ctr
+      scl = input$scl
+      df = input$df
+      
+      file = input$file
+      
+      b1l1 = input$b1l1
+      b1u1 = input$b1u1
+      b1l2 = input$b1l2
+      b1u2 = input$b1u2
+      b1l3 = input$b1l3
+      b1u3 = input$b1u3
+      b1l4 = input$b1l4
+      b1u4 = input$b1u4
+      
+      b1l = input$b1l
+      b1u = input$b1u
+      b2 = input$b2
+      rho = input$rho
+      
+      b1l1e = input$b1l1e
+      b1u1e = input$b1u1e
+      
+      b1l2e = input$b1l2e
+      b1u2e = input$b1u2e
+      
+      b2e = input$b2e
+      
+      prop = input$prop
+      alpha = input$alpha
+      
+      refpwr = input$refpwr
+      currentn = input$currentn
+      target = input$target
+      maxn = input$maxn
+    })
+    
+    output$dataframe = renderTable({
+      
+      req(input$file)
+      
+      tryCatch(
+        {
+          data = read.csv(input$file$datapath,
+                         header = input$header)
+        },
+        error = function(e) {
+          stop(safeError(e))
+        }
+      )
+      
+      if(input$dispdf == TRUE) {
+        return(head(data)[1:4,])
+      }
+      
+    })
+    
+    output$plot = renderPlot({
+      
+      dist = input$dist
+      mu = input$mu
+      sigma = input$sigma
+      upr = input$upr
+      lwr = input$lwr
+      p = input$p
+      ctr = input$ctr
+      scl = input$scl
+      df = input$df
+      
+      file = input$file
+      
+      b1l1 = input$b1l1
+      b1u1 = input$b1u1
+      b1l2 = input$b1l2
+      b1u2 = input$b1u2
+      b1l3 = input$b1l3
+      b1u3 = input$b1u3
+      b1l4 = input$b1l4
+      b1u4 = input$b1u4
+      
+      b1l = input$b1l
+      b1u = input$b1u
+      b2 = input$b2
+      rho = input$rho
+      
+      b1l1e = input$b1l1e
+      b1u1e = input$b1u1e
+      
+      b1l2e = input$b1l2e
+      b1u2e = input$b1u2e
+      
+      b2e = input$b2e
+
+      prop = input$prop
+      alpha = input$alpha
+      
+      refpwr = input$refpwr
+      currentn = input$currentn
+      target = input$target
+      maxn = input$maxn
+      
+      # power calculations
+      if (input$radio == 1){
+        # univariate calculation, allows for four families of data distributions
+        if(!input$adjust && !input$emp){
+          if (input$dist == 1){
+            b1s = seq(from = b1l1, to = b1u1, length.out = 1000)
+            b0s = sapply(b1s, function(x) findb0(x, prop=prop, dist = "normal", mu=mu, sigma=sigma))
+            results = mapply(calc_pwr, b0 = b0s, b1 = b1s, n = rep(currentn, 1000), 
+                             alpha = rep(alpha, 1000), dist = rep("normal", 1000))
+            b1hat1 = calc_effect_size(n=currentn, prop=prop, targetpwr=refpwr, alpha=alpha, reg = "uni",
+                                     dist = "normal", mu = mu, sigma = sigma, lower = b1l1, upper = b1u1)
+            par(mar = c(5, 4, 5, 2) + 0.1)
+            plot(NA, ylim = c(0, 1), xlim=c(b1l1, b1u1), 
+                 main = paste0("Power Analysis: Hypothesized b1 from ", b1l1, 
+                               " to ", b1u1, "; Sample Size = ", currentn), 
+                 ylab = "Power", 
+                 xlab = "Hypothesized b1")
+            lines(b1s, results, lwd=2, col="blue")
+            points(x = b1hat1, y = refpwr, col = "forestgreen", pch = 16)
+            abline(h = refpwr, col = "hotpink", lty = 2) 
+            axis(side = 3, at = b1hat1, labels = signif(b1hat1, 3))
+            abline(v = b1hat1, col = "forestgreen", lty = 2)
+          }
+          else if(input$dist == 2){
+            b1s = seq(from = b1l2, to = b1u2, length.out = 1000)
+            b0s = sapply(b1s, function(x) findb0(x, prop=prop, dist = "unif", lwr=lwr, upr=upr))
+            results = mapply(calc_pwr, b0 = b0s, b1 = b1s, n = rep(currentn, 1000), 
+                             alpha = rep(alpha, 1000), dist = rep("unif", 1000))
+            b1hat2 = calc_effect_size(n=currentn, prop=prop, targetpwr=refpwr, alpha=alpha, reg = "uni",
+                                      dist = "unif", lwr = lwr, upr = upr, lower = b1l2, upper = b1u2)
+            par(mar = c(5, 4, 5, 2) + 0.1)
+            plot(NA, ylim = c(0, 1), xlim=c(b1l2, b1u2), 
+                 main = paste0("Power Analysis: Hypothesized b1 from ", b1l2, 
+                               " to ", b1u2, "; Sample Size = ", currentn), 
+                 ylab = "Power", 
+                 xlab = "Hypothesized b1")
+            lines(b1s, results, lwd=2, col="blue")
+            points(x = b1hat2, y = refpwr, col = "forestgreen", pch = 16)
+            abline(h = refpwr, col = "hotpink", lty = 2)
+            axis(side = 3, at = b1hat2, labels = signif(b1hat2, 3))
+            abline(v = b1hat2, col = "forestgreen", lty = 2)
+          }
+          else if(input$dist == 3){
+            b1s = seq(from = b1l3, to = b1u3, length.out = 1000)
+            b0s = sapply(b1s, function(x) findb0(x, prop=prop, dist = "t", ctr = ctr, scl=scl, df=df))
+            results = mapply(calc_pwr, b0 = b0s, b1 = b1s, n = rep(currentn, 1000), 
+                             alpha = rep(alpha, 1000), dist = rep("t", 1000))
+            b1hat3 = calc_effect_size(n=currentn, prop=prop, targetpwr=refpwr, alpha=alpha, reg = "uni", 
+                                     dist = "t", ctr = ctr, scl=scl, df=df, lower = b1l3, upper = b1u3)
+            par(mar = c(5, 4, 5, 2) + 0.1)
+            plot(NA, ylim = c(0, 1), xlim=c(b1l3, b1u3), 
+                 main = paste0("Power Analysis: Hypothesized b1 from ", b1l3, 
+                               " to ", b1u3, "; Sample Size = ", currentn), 
+                 ylab = "Power", 
+                 xlab = "Hypothesized b1")
+            lines(b1s, results, lwd=2, col="blue")
+            points(x = b1hat3, y = refpwr, col = "forestgreen", pch = 16)
+            abline(h = refpwr, col = "hotpink", lty = 2) 
+            axis(side = 3, at = b1hat3, labels = signif(b1hat3, 3))
+            abline(v = b1hat3, col = "forestgreen", lty = 2)
+          }
+          else if(input$dist == 4){
+            b1s = seq(from = b1l4, to = b1u4, length.out = 1000)
+            b0s = sapply(b1s, function(x) findb0(x, prop=prop, dist = "binary", succ = 0, fail = 1, p = p))
+            results = mapply(calc_pwr, b0 = b0s, b1 = b1s, n = rep(currentn, 1000), 
+                             alpha = rep(alpha, 1000), dist = rep("binary", 1000))
+            b1hat4 = calc_effect_size(n=currentn, prop=prop, targetpwr=refpwr, alpha=alpha, reg = "uni", 
+                                       dist = "binary", succ = 1, fail = 0, p = p, lower = b1l4, upper = b1u4)
+            #global.b1hat <<- b1hat4
+            par(mar = c(5, 4, 5, 2) + 0.1)
+            plot(NA, ylim = c(0, 1), xlim=c(b1l4, b1u4), 
+                 main = paste0("Power Analysis: Hypothesized b1 from ", b1l4, 
+                               " to ", b1u4, "; Sample Size = ", currentn), 
+                 ylab = "Power", 
+                 xlab = "Hypothesized b1")
+            lines(b1s, results, lwd=2, col="blue")
+            points(x = b1hat4, y = refpwr, col = "forestgreen", pch = 16)
+            abline(h = refpwr, col = "hotpink", lty = 2)
+            axis(side = 3, at = b1hat4, labels = signif(b1hat4, 3))
+            abline(v = b1hat4, col = "forestgreen", lty = 2)
+          }
+        } 
+        
+        
+        # bivariate approximation, only allows normal data distributions
+        else if(input$adjust && !input$emp){
+          b1s = seq(from = b1l, to = b1u, length.out = 1000)
+          b2s = rep(b2, length(b1s))
+          b0s = sapply(b1s, function(x) findb0(x, b2=b2, prop=prop, dist="normal", mu=mu, sigma=sigma))
+          results = mapply(approx_pwr, b0 = b0s, b1 = b1s, b2 = b2s, rho = rep(rho, 1000), 
+                           n = rep(currentn, 1000), alpha = rep(alpha, 1000), 
+                           dist = rep("normal", 1000), mu=rep(mu, 1000), sigma=rep(sigma, 1000))
+          b1hat.1d = calc_effect_size(n=currentn, b2=b2, rho=rho, prop=prop, targetpwr=refpwr, alpha=alpha, 
+                                      reg = "multi", dist = "normal", mu=mu, sigma=sigma, lower=b1l, upper=b1u)
+          par(mar = c(5, 4, 5, 2) + 0.1)
+          plot(NA, ylim = c(0, 1), xlim=c(b1l, b1u), 
+               main = paste0("Power Analysis: Hypothesized b1 from ", b1l, 
+                             " to ", b1u, "; Sample Size = ", currentn), 
+               ylab = "Power", 
+               xlab = "Hypothesized b1")
+          lines(b1s, results, lwd=2, col="blue")
+          points(x = b1hat.1d, y = refpwr, col = "forestgreen", pch = 16)
+          abline(h = refpwr, col = "hotpink", lty = 2)
+          axis(side = 3, at = b1hat.1d, labels = signif(b1hat.1d, 3))
+          abline(v = b1hat.1d, col = "forestgreen", lty = 2)
+        } 
+        
+        # univariate approximation from emperical distribution
+        else if(!input$adjust && input$emp){
+          b1s = seq(from = b1l1e, to = b1u1e, length.out = 1000)
+          data = matrix(scan(
+              input$file$datapath, sep = ",", what=numeric(), skip=input$header), ncol=2)
+          b0s = sapply(b1s, function(x) findb0emp(b1=x, prop=prop, xmat=data, reg="uni",
+                                                  lower=b1l1e, upper=b1u1e))
+          results = vector(length = length(b1s))
+          for(i in 1:length(results)){
+            pwr = calc_pwr_emp(b0s[i], b1s[i], xmat = data, reg = "uni")
+            results[i] = pwr
+          }
+          b1hat.1e = calc_effect_size_emp(xmat=data, prop=prop, targetpwr=refpwr, alpha=alpha, reg = "uni", 
+                                          lower = b1l1e, upper = b1u1e)
+          par(mar = c(5, 4, 5, 2) + 0.1)
+          plot(NA, ylim = c(0, 1), xlim=c(b1l1e, b1u1e), 
+               main = paste0("Power Analysis: Hypothesized b1 from ", b1l1e, 
+                             " to ", b1u1e, "; Sample Size = ", currentn), 
+               ylab = "Power", 
+               xlab = "Hypothesized b1")
+          lines(b1s, results, lwd=2, col="blue")
+          points(x = b1hat.1e, y = refpwr, col = "forestgreen", pch = 16)
+          abline(h = refpwr, col = "hotpink", lty = 2)
+          axis(side = 3, at = b1hat.1e, labels = signif(b1hat.1e, 3))
+          abline(v = b1hat.1e, col = "forestgreen", lty = 2)
+        } 
+        
+         # multivariate approximation from emperical distribution
+         else{
+           b1s = seq(from = b1l2e, to = b1u2e, length.out = 1000)
+           data = matrix(scan(
+             input$file$datapath, sep = ",", what=numeric(), skip=input$header), ncol=3)
+           results = vector(length = length(b1s))
+           for(i in 1:length(results)){
+             b0i = findb0emp(b1=b1s[i], b2=b2e, prop=prop, xmat=data, reg="multi", lower=b1l2e, upper=b1u2e)
+             pwr = calc_pwr_emp(b0i, b1s[i], b2e, xmat = data, reg = "multi")
+             results[i] = pwr
+           }
+           b1hat.2e = calc_effect_size_emp(xmat=data, prop=prop, targetpwr=refpwr, alpha=alpha, reg="multi", 
+                                           b2=b2e, lower=b1l2e, upper=b1u2e)
+           par(mar = c(5, 4, 5, 2) + 0.1)
+           plot(NA, ylim = c(0, 1), xlim=c(b1l2e, b1u2e), 
+                main = paste0("Power Analysis: Hypothesized b1 from ", b1l2e, 
+                              " to ", b1u2e, "; Sample Size = ", currentn), 
+                ylab = "Power", 
+                xlab = "Hypothesized b1")
+           lines(b1s, results, lwd=2, col="blue")
+           points(x = b1hat.2e, y = refpwr, col = "forestgreen", pch = 16)
+           abline(h = refpwr, col = "hotpink", lty = 2)
+           axis(side = 3, at = b1hat.2e, labels = signif(b1hat.2e, 3))
+           abline(v = b1hat.2e, col = "forestgreen", lty = 2)
+         }
+      }
+      
+      # sample size calculations
+      if (input$radio == 2){
+        # univariate calculation, allows for four families of data distributions
+        if(!input$adjust && !input$emp){
+          if (input$dist == 1){
+            b1s = seq(from = b1l1, to = b1u1, length.out = 1000)
+            b0s = sapply(b1s, function(x) findb0(x, prop, dist = "normal", mu=mu, sigma=sigma))
+            results = mapply(calc_samp_size, b0 = b0s, b1 = b1s, targetpwr = rep(target, 1000), 
+                             alpha = rep(alpha, 1000), dist = rep("normal", 1000))
+            b1hatS1 = calc_effect_size(n=maxn, prop=prop, targetpwr=target, alpha=alpha, reg="uni",
+                                       mu=mu, sigma=sigma, lower=b1l1, upper=b1u1)
+            targetn1 = calc_samp_size(b0=findb0(b1=b1hatS1, prop=prop, dist="normal", mu=mu, sigma=sigma),
+                                     b1=b1hatS1, targetpwr=target, alpha=alpha, dist="normal", mu=mu, sigma=sigma)
+            par(mar = c(5, 4, 5, 2) + 0.1)
+            plot(NA, ylim = c(min(results), max(results)), xlim=c(b1l1, b1u1), 
+                 main = paste0("Sample size Analysis: Hypothesized b1 from ", b1l1, 
+                               " to ", b1u1, "; power target = ", target), 
+                 ylab = "Sample size to achieve power target", 
+                 xlab = "Hypothesized b1")
+            lines(b1s, results, lwd=2, col="blue")
+            points(x = b1hatS1, y = targetn1, col = "forestgreen", pch = 16)
+            axis(side = 3, at = b1hatS1, labels = signif(b1hatS1, 3))
+            axis(side = 2, at = targetn1, labels = ceiling(targetn1))
+            abline(v = b1hatS1, col = "forestgreen", lty = 2)
+            abline(h = targetn1, col = "hotpink", lty = 2)
+          }
+          else if(input$dist == 2){
+            b1s = seq(from = b1l2, to = b1u2, length.out = 1000)
+            b0s = sapply(b1s, function(x) findb0(x, prop, dist = "unif", lwr=lwr, upr=upr))
+            results = mapply(calc_samp_size, b0 = b0s, b1 = b1s, targetpwr = rep(target, 1000), 
+                             alpha = rep(alpha, 1000), dist = rep("unif", 1000))
+            b1hatS2 = calc_effect_size(n=maxn, prop=prop, targetpwr=target, alpha=alpha, reg="uni",  
+                                       dist = "unif", lwr=lwr, upr=upr, lower = b1l2, upper = b1u2)
+            targetn2 = calc_samp_size(b0=findb0(b1=b1hatS2, prop=prop, dist="unif", lwr=lwr, upr=upr),
+                                     b1=b1hatS2, targetpwr=target, alpha=alpha, dist="unif", lwr=lwr, upr=upr)
+            par(mar = c(5, 4, 5, 2) + 0.1)
+            plot(NA, ylim = c(min(results), max(results)), xlim=c(b1l2, b1u2), 
+                 main = paste0("Sample size Analysis: Hypothesized b1 from ", b1l2, 
+                               " to ", b1u2, "; power target = ", target), 
+                 ylab = "Sample size to achieve power target", 
+                 xlab = "Hypothesized b1")
+            lines(b1s, results, lwd=2, col="blue")
+            points(x = b1hatS2, y = targetn2, col = "forestgreen", pch = 16)
+            axis(side = 3, at = b1hatS2, labels = signif(b1hatS2, 3))
+            axis(side = 2, at = targetn2, labels = ceiling(targetn2))
+            abline(v = b1hatS2, col = "forestgreen", lty = 2)
+            abline(h = targetn2, col = "hotpink", lty = 2)
+          }
+          else if(input$dist == 3){
+            b1s = seq(from = b1l3, to = b1u3, length.out = 1000)
+            b0s = sapply(b1s, function(x) findb0(x, prop, dist="t", ctr=ctr, scl=scl, df=df))
+            results = mapply(calc_samp_size, b0 = b0s, b1 = b1s, targetpwr = rep(target, 1000), 
+                             alpha = rep(alpha, 1000), dist = rep("t", 1000))
+            b1hatS3 = calc_effect_size(n=maxn, prop=prop, targetpwr=target, alpha=alpha, reg="uni", 
+                                       dist = "t", ctr=ctr, scl=scl, df=df, lower = b1l3, upper = b1u3)
+            targetn3 = calc_samp_size(b0=findb0(b1=b1hatS3, prop=prop, dist="t", ctr=ctr, scl=scl, df=df),
+                                      b1=b1hatS3, targetpwr=target, alpha=alpha, dist="t", ctr=ctr, scl=scl, df=df)
+            par(mar = c(5, 4, 5, 2) + 0.1)
+            plot(NA, ylim = c(min(results), max(results)), xlim=c(b1l3, b1u3), 
+                 main = paste0("Sample size Analysis: Hypothesized b1 from ", b1l3, 
+                               " to ", b1u3, "; power target = ", target), 
+                 ylab = "Sample size to achieve power target", 
+                 xlab = "Hypothesized b1")
+            lines(b1s, results, lwd=2, col="blue")
+            points(x = b1hatS3, y = targetn3, col = "forestgreen", pch = 16)
+            axis(side = 3, at = b1hatS3, labels = signif(b1hatS3, 3))
+            axis(side = 4, at = targetn3, labels = floor(targetn3))
+            abline(v = b1hatS3, col = "forestgreen", lty = 2)
+            abline(h = targetn3, col = "hotpink", lty = 2)
+          }
+          else if(input$dist == 4){
+            b1s = seq(from = b1l4, to = b1u4, length.out = 1000)
+            b0s = sapply(b1s, function(x) findb0(x, prop, dist="binary", succ=0, fail=1, p=p))
+            results = mapply(calc_samp_size, b0 = b0s, b1 = b1s, targetpwr = rep(target, 1000), 
+                             alpha = rep(alpha, 1000), dist = rep("binary", 1000))
+            b1hatS4 = calc_effect_size(n=maxn, prop=prop, targetpwr=target, alpha=alpha, reg="uni", 
+                                       dist="binary", succ=0, fail=1, p=p, lower=b1l4, upper=b1u4)
+            targetn4 = calc_samp_size(b0=findb0(b1=b1hatS4, prop=prop, dist="binary", succ=0, fail=1, p=p),
+                                      b1=b1hatS4, targetpwr=target, alpha=alpha, dist="binary", succ=0, fail=1, p=p)
+            par(mar = c(5, 4, 5, 2) + 0.1)
+            plot(NA, ylim = c(min(results), max(results)), xlim=c(b1l4, b1u4), 
+                 main = paste0("Sample size Analysis: Hypothesized b1 from ", b1l4, 
+                               " to ", b1u4, "; power target = ", target), 
+                 ylab = "Sample size to achieve power target", 
+                 xlab = "Hypothesized b1")
+            lines(b1s, results, lwd=2, col="blue")
+            points(x = b1hatS4, y = targetn4, col = "forestgreen", pch = 16)
+            axis(side = 3, at = b1hatS4, labels = signif(b1hatS4, 3))
+            axis(side = 2, at = targetn4, labels = ceiling(targetn4))
+            abline(v = b1hatS4, col = "forestgreen", lty = 2)
+            abline(h = targetn4, col = "hotpink", lty = 2)
+          }
+        }
+        
+        # bivariate approximation, only allows normal data distributions
+        else if(input$adjust && !input$emp){
+          b1s = seq(from = b1l, to = b1u, length.out = 1000)
+          b0s = sapply(b1s, function(x) findb0(x, prop, dist = "normal", mu = mu, sigma = sigma))
+          results = mapply(approx_samp_size, b0 = b0s, b1 = b1s, b2 = rep(b2, 1000), rho = rep(rho, 1000), 
+                           targetpwr = rep(target, 1000), alpha = rep(alpha, 1000), dist = rep("normal", 1000),
+                           mu=rep(mu, 1000), sigma=rep(sigma, 1000))
+          b1hat.S1d = calc_effect_size(n=maxn, b2=b2, rho=rho, prop=prop, targetpwr=target, alpha=alpha, 
+                                      reg = "multi", dist = "normal", mu=mu, sigma=sigma, lower=b1l, upper=b1u)
+          targetn.S1d = approx_samp_size(b0=findb0(b1=b1hat.S1d, prop=prop, b2=b2, multi=T, dist="normal", mu=mu, sigma=sigma), 
+                                         b1=b1hat.S1d, b2=b2, rho=rho,
+                                         targetpwr=target, alpha=alpha, dist="normal", mu=mu, sigma=sigma)
+          par(mar = c(5, 4, 5, 2) + 0.1)
+          plot(NA, ylim = c(min(results), max(results)), xlim=c(b1l, b1u), 
+               main = paste0("Sample size Analysis: Hypothesized b1 from ", b1l, 
+                             " to ", b1u, "; power target = ", target), 
+               ylab = "Sample size to achieve power target", 
+               xlab = "Hypothesized b1")
+          lines(b1s, results, lwd=2, col="blue")
+          points(x = b1hat.S1d, y = targetn.S1d, col = "forestgreen", pch = 16)
+          axis(side = 3, at = b1hat.S1d, labels = signif(b1hat.S1d, 3))
+          axis(side = 2, at = targetn.S1d, labels = ceiling(targetn.S1d))
+          abline(v = b1hat.S1d, col = "forestgreen", lty = 2)
+          abline(h = targetn.S1d, col = "hotpink", lty = 2)
+        }
+        
+        # univariate approximation from emperical distribution
+        else if(!input$adjust && input$emp){
+          b1s = seq(from = b1l1e, to = b1u1e, length.out = 1000)
+          data = matrix(scan(
+            input$file$datapath, sep = ",", what=numeric(), skip=input$header), ncol=2)
+          results = vector(length = length(b1s))
+          for(i in 1:length(results)){
+            b0i = findb0emp(b1=b1s[i], prop=prop, xmat=data, reg="uni", lower=b1l1e, upper=b1u1e)
+            ss = calc_samp_size_emp(xmat=data, b0=b0i, b1=b1s[i], 
+                                    targetpwr=target, alpha=alpha, reg = "uni")
+            results[i] = ss
+          }
+          b1hat.S1e = calc_effect_size_emp(xmat=data, prop=prop, targetpwr=target, alpha=alpha, 
+                                           reg = "uni", lower = b1l1e, upper = b1u1e)
+          targetn.S1e = calc_samp_size_emp(b0=findb0emp(b1=b1hat.S1e,prop=prop,xmat=data,lower=b1l1e,upper=b1u1e),
+                                           xmat=data, b1=b1hat.S1e, targetpwr=target, alpha=alpha, reg = "uni")
+          par(mar = c(5, 4, 5, 2) + 0.1)
+          plot(NA, ylim = c(min(results), max(results)), xlim=c(b1l1e, b1u1e), 
+               main = paste0("Sample size Analysis: Hypothesized b1 from ", b1l1e, 
+                             " to ", b1u1e, "; power target = ", target), 
+               ylab = "Sample size to achieve power target", 
+               xlab = "Hypothesized b1")
+          lines(b1s, results, lwd=2, col="blue")
+          points(x = b1hat.S1e, y = targetn.S1e, col = "forestgreen", pch = 16)
+          axis(side = 3, at = b1hat.S1e, labels = signif(b1hat.S1e, 3))
+          axis(side = 2, at = targetn.S1e, labels = ceiling(targetn.S1e))
+          abline(v = b1hat.S1e, col = "forestgreen", lty = 2)
+          abline(h = targetn.S1e, col = "hotpink", lty = 2)
+        } 
+        
+        # multivariate approximation from emperical distribution
+        else{
+          b1s = seq(from = b1l2e, to = b1u2e, length.out = 1000)
+          data = matrix(scan(
+            input$file$datapath, sep = ",", what=numeric(), skip=input$header), ncol=3)
+          results = vector(length = length(b1s))
+          for(i in 1:length(results)){
+            b0i = findb0emp(b1=b1s[i], b2=b2e, prop=prop, xmat=data, reg="multi", 
+                            lower=b1l2e, upper=b1u2e)
+            ss = calc_samp_size_emp(xmat=data, b0=b0i, b1=b1s[i], b2=b2e, 
+                                    targetpwr=target, alpha=alpha, reg = "multi")
+            results[i] = ss
+          }
+          b1hat.S2e = calc_effect_size_emp(xmat=data, prop=prop, targetpwr=target, alpha=alpha, reg = "multi", 
+                                           b2=b2e, lower=b1l2e, upper=b1u2e)
+          targetn.S2e = calc_samp_size_emp(b0=findb0emp(b1=b1hat.S2e, b2=b2e, prop=prop, xmat=data, 
+                                                        reg="multi", lower=b1l2e, upper=b1u2e), xmat=data, 
+                                           b1=b1hat.S2e, b2=b2e, targetpwr=target, alpha=alpha, reg = "multi")
+          par(mar = c(5, 4, 5, 2) + 0.1)
+          plot(NA, ylim = c(min(results), max(results)), xlim=c(b1l2e, b1u2e), 
+               main = paste0("Sample size Analysis: Hypothesized b1 from ", b1l2e, 
+                             " to ", b1u2e, "; power target = ", target), 
+               ylab = "Sample size to achieve power target", 
+               xlab = "Hypothesized b1")
+          lines(b1s, results, lwd=2, col="blue")
+          points(x = b1hat.S2e, y = targetn.S2e, col = "forestgreen", pch = 16)
+          axis(side = 3, at = b1hat.S2e, labels = signif(b1hat.S2e, 3))
+          axis(side = 2, at = targetn.S2e, labels = ceiling(targetn.S2e))
+          abline(v = b1hat.S2e, col = "forestgreen", lty = 2)
+          abline(h = targetn.S2e, col = "hotpink", lty = 2)
+        }
+      }
+        
+    })
+    
+    output$outreq = renderUI({
+      
+      refpwr = input$refpwr
+      currentn = input$currentn
+      # global.b1hat <<- NA
+      if (input$radio == 1){
+        str.outreq = paste0("Using a sample size of ", h5(currentn), 
+                             " will achieve a power of ", h5(paste0(refpwr*100, "%")),
+                            " if the log odds ratio is at least (read from plot)")
+      }
+      
+      if(input$radio == 2){
+        target = input$target
+        maxn = input$maxn
+        str.outreq = paste0("In order to achieve a power of ", h5(paste0(target*100, "% ")),
+                            "using a sample size of at most ", h5(maxn),
+                            " log odds ratio should at least be (read from plot)" )
+      }
+      
+      HTML(str.outreq)
+    })
+    
+    output$reference = renderUI({
+
+      str.reference = paste0("Method by ", h5("Schoenfeld and Borenstein (2005)"), 
+                             "Maintained by ", h5(paste0("zorayang[at]", "uw[dot]edu")))
+      
+      HTML(str.reference)
+    })
+    
+    
+  })

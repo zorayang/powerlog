@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1572809496435.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "123C8509",
+    "lastKnownWriteTime" : 1572809722,
+    "last_content_update" : 1572809722211,
+    "path" : "~/OneDrive-UW/Thesis/powerlog/R/effectsize.R",
+    "project_path" : "R/effectsize.R",
+    "properties" : {
+        "cursorPosition" : "19,21",
+        "scrollLine" : "11"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}

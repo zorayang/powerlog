@@ -1,0 +1,16 @@
+Package: powerlog
+Type: Package
+Title: power and sample size calculation for logistic regression
+Version: 0.1.0
+Author: Zora Yezi Yang
+Maintainer: The package maintainer <zora@zorayang.com>
+Description: Calculate power and sample size based on a range of hypothesized effect sizes.
+    Support univariate calculations for normal, uniform, t-distributed and binary data.
+    Allow single adjustment variable assuming a bi-variate normal structure.
+    Upload design matrix for univariate and bivariate regressions using an empirical data distribution.
+License: GPL3/MIT?
+Encoding: UTF-8
+LazyData: true
+Imports:
+    metRology
+RoxygenNote: 6.1.1

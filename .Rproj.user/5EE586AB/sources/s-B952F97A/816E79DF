@@ -1,0 +1,23 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1557866442826.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "816E79DF",
+    "lastKnownWriteTime" : 1573146064,
+    "last_content_update" : 1573146064011,
+    "path" : "~/OneDrive-UW/Thesis/powerlog/vignette.Rmd",
+    "project_path" : "vignette.Rmd",
+    "properties" : {
+        "cursorPosition" : "186,0",
+        "scrollLine" : "168",
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 5,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

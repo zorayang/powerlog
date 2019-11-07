@@ -1,0 +1,5 @@
+"0","# HighDBP ~ RIDAGEYR"
+"0","b1hat1 = calc_effect_size_emp(xmat=xmat_nhanes_univ, prop=prop_nhanes, targetpwr=target_power, alpha=0.05, reg = ""uni"", lower = 0, upper = 0.12)"
+"2","Error in calc_pwr_emp(b0 = b0, b1 = b1, b2 = NULL, xmat = xmat, alpha = alpha,  : 
+  unused argument (alpha = alpha)
+"
